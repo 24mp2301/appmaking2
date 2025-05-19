@@ -20,14 +20,22 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => isLoading = true);
       try {
-        await _auth.signInWithEmailAndPassword(
+        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
           email: email.trim(),
           password: password.trim(),
         );
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Login Successful')));
-        Navigator.pushReplacementNamed(context, '/home');
+
+        if (userCredential.user != null &&
+            !userCredential.user!.emailVerified) {
+          await _auth.signOut(); // Sign out unverified user
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please verify your email before logging in.'),
+            ),
+          );
+        } else {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
       } on FirebaseAuthException catch (e) {
         ScaffoldMessenger.of(
           context,
