@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -16,48 +17,78 @@ class _SignupScreenState extends State<SignupScreen> {
   String password = '';
   bool isLoading = false;
 
-  void _signup() async {
+  /// Sign up with email and password
+  Future<void> _signupWithEmailPassword() async {
     if (_formKey.currentState!.validate()) {
       setState(() => isLoading = true);
+
       try {
-        UserCredential userCredential = await _auth
-            .createUserWithEmailAndPassword(
-              email: email.trim(),
-              password: password.trim(),
-            );
-
-        // Send email verification
-        if (!userCredential.user!.emailVerified) {
-          await userCredential.user!.sendEmailVerification();
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Signup Successful! Please verify your email before logging in.',
-            ),
-          ),
+        final userCredential = await _auth.createUserWithEmailAndPassword(
+          email: email.trim(),
+          password: password.trim(),
         );
 
-        // Optionally, sign out the user so they can't proceed without verifying
-        await _auth.signOut();
+        // Optional: send email verification
+        // await userCredential.user!.sendEmailVerification();
 
-        // Navigate back to login screen after signup
-        Navigator.pushReplacementNamed(context, '/login');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account created successfully')),
+        );
+
+        Navigator.pushReplacementNamed(context, '/home');
       } on FirebaseAuthException catch (e) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(e.message ?? 'Signup Failed')));
+        ).showSnackBar(SnackBar(content: Text(e.message ?? 'Signup failed')));
       } finally {
         setState(() => isLoading = false);
       }
     }
   }
 
+  /// Sign up or Sign in with Google
+  Future<void> _signupWithGoogle() async {
+    final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+    try {
+      await _googleSignIn.signOut(); // to force account selection
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return;
+
+      final googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+
+      // Check if this is a new user
+      if (userCredential.additionalUserInfo?.isNewUser ?? false) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google account signed up successfully'),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Logged in with Google')));
+      }
+
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Google Sign-In failed: ${e.toString()}")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Signup")),
+      appBar: AppBar(title: const Text("Sign Up")),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -67,6 +98,8 @@ class _SignupScreenState extends State<SignupScreen> {
               children: [
                 const Text("Create Account", style: TextStyle(fontSize: 24)),
                 const SizedBox(height: 20),
+
+                // Email
                 TextFormField(
                   decoration: const InputDecoration(labelText: 'Email'),
                   keyboardType: TextInputType.emailAddress,
@@ -78,6 +111,8 @@ class _SignupScreenState extends State<SignupScreen> {
                               : 'Enter valid email',
                 ),
                 const SizedBox(height: 15),
+
+                // Password
                 TextFormField(
                   decoration: const InputDecoration(labelText: 'Password'),
                   obscureText: true,
@@ -89,13 +124,29 @@ class _SignupScreenState extends State<SignupScreen> {
                               : 'Min 6 characters',
                 ),
                 const SizedBox(height: 30),
+
+                // Email Signup Button
                 isLoading
                     ? const CircularProgressIndicator()
                     : ElevatedButton(
-                      onPressed: _signup,
-                      child: const Text("Sign Up"),
+                      onPressed: _signupWithEmailPassword,
+                      child: const Text("Sign Up with Email"),
                     ),
+                const SizedBox(height: 15),
+
+                // Google Signup Button
+                ElevatedButton.icon(
+                  icon: Image.asset('assets/google_logo.png', height: 24),
+                  label: const Text('Sign Up with Google'),
+                  onPressed: _signupWithGoogle,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                  ),
+                ),
                 const SizedBox(height: 10),
+
+                // Navigate to Login
                 TextButton(
                   onPressed: () {
                     Navigator.pushReplacementNamed(context, '/login');

@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,39 +11,60 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final _auth = FirebaseAuth.instance;
 
   String email = '';
   String password = '';
   bool isLoading = false;
 
-  void _login() async {
+  /// Login with Email and Password
+  Future<void> _loginWithEmailPassword() async {
     if (_formKey.currentState!.validate()) {
       setState(() => isLoading = true);
       try {
-        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        await _auth.signInWithEmailAndPassword(
           email: email.trim(),
           password: password.trim(),
         );
-
-        if (userCredential.user != null &&
-            !userCredential.user!.emailVerified) {
-          await _auth.signOut(); // Sign out unverified user
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please verify your email before logging in.'),
-            ),
-          );
-        } else {
-          Navigator.pushReplacementNamed(context, '/home');
-        }
+        Navigator.pushReplacementNamed(context, '/home');
       } on FirebaseAuthException catch (e) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(e.message ?? 'Login Failed')));
+        ).showSnackBar(SnackBar(content: Text(e.message ?? 'Login failed')));
       } finally {
         setState(() => isLoading = false);
       }
+    }
+  }
+
+  /// Login with Google
+  Future<void> _loginWithGoogle() async {
+    final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+    try {
+      await _googleSignIn.signOut(); // To ensure account selection
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return; // Cancelled by user
+
+      final googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+
+      if (userCredential.user != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Logged in with Google')));
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Google Login failed: ${e.toString()}")),
+      );
     }
   }
 
@@ -59,6 +81,8 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Text("Welcome Back", style: TextStyle(fontSize: 24)),
                 const SizedBox(height: 20),
+
+                // Email Field
                 TextFormField(
                   decoration: const InputDecoration(labelText: 'Email'),
                   keyboardType: TextInputType.emailAddress,
@@ -67,9 +91,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       (val) =>
                           val != null && val.contains('@')
                               ? null
-                              : 'Enter a valid email',
+                              : 'Enter valid email',
                 ),
                 const SizedBox(height: 15),
+
+                // Password Field
                 TextFormField(
                   decoration: const InputDecoration(labelText: 'Password'),
                   obscureText: true,
@@ -80,29 +106,30 @@ class _LoginScreenState extends State<LoginScreen> {
                               ? null
                               : 'Min 6 characters',
                 ),
-
-                // Add Forgot Password button here
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/forgot-password');
-                    },
-                    child: const Text("Forgot Password?"),
-                  ),
-                ),
-
                 const SizedBox(height: 30),
 
+                // Login Button
                 isLoading
                     ? const CircularProgressIndicator()
                     : ElevatedButton(
-                      onPressed: _login,
-                      child: const Text("Login"),
+                      onPressed: _loginWithEmailPassword,
+                      child: const Text("Login with Email"),
                     ),
+                const SizedBox(height: 15),
 
+                // Google Login
+                ElevatedButton.icon(
+                  icon: Image.asset('assets/google_logo.png', height: 24),
+                  label: const Text('Login with Google'),
+                  onPressed: _loginWithGoogle,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                  ),
+                ),
                 const SizedBox(height: 10),
 
+                // Navigate to Signup
                 TextButton(
                   onPressed: () {
                     Navigator.pushReplacementNamed(context, '/signup');

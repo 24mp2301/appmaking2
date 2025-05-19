@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   firebase_core: 2.27.0
   firebase_auth: 4.16.0
-
+  google_sign_in: ^6.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -88,3 +88,6 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  assets:
+    - assets/google_logo.png
